@@ -1,33 +1,34 @@
 
-# Stage 1: Download and prepare the model
+# Stage 1: Download the lightweight model
 FROM ollama/ollama:latest AS model-builder
 
-# Set model storage directory
 ENV OLLAMA_MODELS=/root/.ollama/models
 
-# Download Llama 3.2 3B
 RUN ollama serve & \
     pid=$!; \
     for i in $(seq 1 60); do \
       if ollama list >/dev/null 2>&1; then break; fi; \
       sleep 2; \
     done; \
-    ollama pull llama3.2:3b; \
+    ollama pull smollm2:360m-instruct-q2_K; \
     kill $pid; \
     wait $pid || true
 
-# Stage 2: Final production image
+# Stage 2: Production
 FROM ollama/ollama:latest
 
-# Include the downloaded model
 COPY --from=model-builder /root/.ollama /root/.ollama
 
-# Listen on all container interfaces
 ENV OLLAMA_HOST=0.0.0.0:11434
+ENV OLLAMA_MODELS=/root/.ollama/models
 
-# Expose Ollama API
+# Limit memory usage
+ENV OLLAMA_CONTEXT_LENGTH=512
+ENV OLLAMA_NUM_PARALLEL=1
+ENV OLLAMA_MAX_LOADED_MODELS=1
+ENV OLLAMA_KEEP_ALIVE=0
+
 EXPOSE 11434
 
-# Start Ollama directly
 ENTRYPOINT ["ollama"]
 CMD ["serve"]
